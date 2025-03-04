@@ -1,0 +1,146 @@
+--Question 1:
+--WITH RecentMonthReceipts AS (
+    SELECT 
+        b.name AS brand_name, 
+        COUNT(DISTINCT r._id) AS receipt_count
+    FROM Receipts r
+    LEFT JOIN UNNEST(r.rewardsReceiptItemList) AS item ON 1=1
+    LEFT JOIN Brands b ON item.barcode = b.barcode
+    WHERE r.purchaseDate BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH) AND CURRENT_DATE()
+    GROUP BY b.name
+)
+SELECT 
+    brand_name, 
+    receipt_count
+FROM RecentMonthReceipts
+ORDER BY receipt_count DESC
+LIMIT 5;
+
+
+
+--Question 2:
+--WITH BrandReceiptCounts AS (
+    SELECT 
+        b.name AS brand_name, 
+        COUNT(DISTINCT r._id) AS receipt_count,
+        CASE 
+            WHEN r.purchaseDate BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH) AND CURRENT_DATE() 
+            THEN 'Recent Month'
+            WHEN r.purchaseDate BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH) AND DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH) 
+            THEN 'Previous Month'
+        END AS period
+    FROM Receipts r
+    LEFT JOIN UNNEST(r.rewardsReceiptItemList) AS item ON 1=1
+    LEFT JOIN Brands b ON item.barcode = b.barcode
+    WHERE r.purchaseDate BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH) AND CURRENT_DATE()
+    GROUP BY b.name, period
+),
+RankedBrands AS (
+    SELECT 
+        brand_name, 
+        period, 
+        receipt_count,
+        RANK() OVER (PARTITION BY period ORDER BY receipt_count DESC) AS rank
+    FROM BrandReceiptCounts
+    WHERE period IS NOT NULL
+)
+SELECT 
+    brand_name, 
+    period, 
+    receipt_count, 
+    rank
+FROM RankedBrands
+WHERE rank <= 5
+ORDER BY period DESC, rank;
+
+
+
+
+--Question 3:
+SELECT 
+    rewardsReceiptStatus,
+    AVG(totalSpent) AS avg_spend
+FROM Receipts
+WHERE 
+    rewardsReceiptStatus IN ('Accepted', 'Rejected')
+    AND purchaseDate BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND CURRENT_DATE()
+GROUP BY rewardsReceiptStatus
+ORDER BY avg_spend DESC;
+
+
+
+
+--Question 4: 
+SELECT 
+    rewardsReceiptStatus,
+    SUM(purchasedItemCount) AS total_items_purchased
+FROM Receipts
+WHERE 
+    rewardsReceiptStatus IN ('Accepted', 'Rejected')
+    AND purchaseDate BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND CURRENT_DATE()
+GROUP BY rewardsReceiptStatus
+ORDER BY total_items_purchased DESC;
+
+
+
+--Question 5:
+WITH RecentUsers AS (
+    SELECT _id 
+    FROM Users
+    WHERE createdDate BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH) AND CURRENT_DATE()
+),
+UserReceipts AS (
+    SELECT 
+        r._id AS receipt_id,
+        r.totalSpent,
+        item.barcode
+    FROM Receipts r
+    INNER JOIN RecentUsers u ON r.userId = u._id
+    LEFT JOIN UNNEST(r.rewardsReceiptItemList) AS item ON 1=1
+),
+BrandSpend AS (
+    SELECT 
+        b.name AS brand_name,
+        SUM(ur.totalSpent) AS total_spend
+    FROM UserReceipts ur
+    LEFT JOIN Brands b ON ur.barcode = b.barcode
+    GROUP BY b.name
+)
+SELECT 
+    brand_name, 
+    total_spend
+FROM BrandSpend
+ORDER BY total_spend DESC
+LIMIT 1;
+
+
+
+--Question 6:
+WITH RecentUsers AS (
+    SELECT _id 
+    FROM Users
+    WHERE createdDate BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH) AND CURRENT_DATE()
+),
+UserReceipts AS (
+    SELECT 
+        r._id AS receipt_id,
+        item.barcode
+    FROM Receipts r
+    INNER JOIN RecentUsers u ON r.userId = u._id
+    LEFT JOIN UNNEST(r.rewardsReceiptItemList) AS item ON 1=1
+),
+BrandTransactions AS (
+    SELECT 
+        b.name AS brand_name,
+        COUNT(DISTINCT ur.receipt_id) AS transaction_count
+    FROM UserReceipts ur
+    LEFT JOIN Brands b ON ur.barcode = b.barcode
+    GROUP BY b.name
+)
+SELECT 
+    brand_name, 
+    transaction_count
+FROM BrandTransactions
+ORDER BY transaction_count DESC
+LIMIT 1;
+
