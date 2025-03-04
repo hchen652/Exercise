@@ -1,1 +1,1 @@
-![Structured Data Model](diagram_fetch.png)
+![Structured Data Model](diagram.jpg)
