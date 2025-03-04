@@ -1,1 +1,1 @@
-![Structured Data Model](diagram.jpg)
+![Structured Data Model](diagram2.jpg)
