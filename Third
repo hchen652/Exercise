@@ -1,0 +1,50 @@
+/*
+1. Missing or NULL Values
+	For example, check the null values in the receipt table
+*/
+	
+SELECT COUNT(*) AS total_rows, 
+	COUNTIF(_id IS NULL) AS missing_receipt_id, 
+	COUNTIF(userId IS NULL) AS missing_user_id, COUNTIF(purchaseDate IS NULL) AS missing_purchase_date, COUNTIF(totalSpent IS NULL) AS missing_total_spent 
+	FROM Receipts;
+
+/*
+2.Duplicate Records
+	Duplicate record can result in overestimation that skew the strategy.
+*/
+
+	SELECT _id, COUNT(*) AS duplicate_count 
+	FROM Receipts 
+	GROUP BY _id 
+	HAVING COUNT(*) > 1;
+	
+	SELECT _id, COUNT(*) AS duplicate_count 
+	FROM Users GROUP BY _id 
+	HAVING COUNT(*) > 1;
+
+/*
+3.Outliers in Numerical Data
+	Extremely high or low values in totalSpent, bonusPointsEarned, or quantityPurchased could be errors. These outliers should be removed for any further analysis.
+*/
+
+	WITH Stats AS (
+	    SELECT 
+	        AVG(totalSpent) AS mean_spend,
+	        STDDEV(totalSpent) AS std_spend
+	    FROM Receipts
+	)
+	SELECT 
+	    _id, totalSpent
+	FROM Receipts, Stats
+	WHERE totalSpent > mean_spend + 3 * std_spend
+	   OR totalSpent < mean_spend - 3 * std_spend;
+	
+/*
+4.Foreign Key Integrity Issues: A receipt may reference a userId that doesn’t exist in the Users table, or an item may have a barcode that’s missing from Brands.
+*/
+
+SELECT item.barcode
+FROM Receipts r
+LEFT JOIN UNNEST(r.rewardsReceiptItemList) AS item ON TRUE
+LEFT JOIN Brands b ON item.barcode = b.barcode
+WHERE b.barcode IS NULL;
